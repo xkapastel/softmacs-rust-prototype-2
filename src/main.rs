@@ -146,7 +146,7 @@ impl Heap {
       time: 0,
     }
   }
-  
+
   fn put(&mut self, object: Object) -> Result<Gc> {
     for (index, node) in self.nodes.iter_mut().enumerate() {
       if !node.is_none() {
@@ -176,6 +176,11 @@ impl Heap {
 
   fn new_unit(&mut self) -> Result<Gc> {
     let object = Object::Unit;
+    return self.put(object);
+  }
+
+  fn new_bool(&mut self, value: bool) -> Result<Gc> {
+    let object = Object::Bool(value);
     return self.put(object);
   }
 
@@ -357,7 +362,22 @@ fn parse(src: &Vec<Token>, heap: &mut Heap) -> Result<Vec<Gc>> {
         index += 1;
       }
       &Token::Symbol(ref body) => {
-        let pointer = heap.new_symbol(body.clone())?;
+        let pointer;
+        if body.starts_with("#") {
+          match &**body {
+            "#t" => {
+              pointer = heap.new_bool(true)?;
+            }
+            "#f" => {
+              pointer = heap.new_bool(false)?;
+            }
+            _ => {
+              return Err(Error::Read);
+            }
+          }
+        } else {
+          pointer = heap.new_symbol(body.clone())?;
+        }
         pointers.push(pointer);
         index += 1;
       }
