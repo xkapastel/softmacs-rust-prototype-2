@@ -25,11 +25,18 @@ enum Error {
   Time,
   Space,
   Type,
-  Assert,
+  Guard,
   Pointer,
 }
 
 type Result<T> = std::result::Result<T, Error>;
+
+fn guard(flag: bool) -> Result<()> {
+  if flag {
+    return Ok(());
+  }
+  return Err(Error::Guard);
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 struct Gc {
@@ -37,38 +44,69 @@ struct Gc {
   timestamp: usize,
 }
 
-#[derive(Debug, Clone)]
-enum Object {
-  Null,
-  Pair(Gc, Gc),
-  List(Gc, Gc),
-  Symbol(Rc<str>),
+type RestFn = Fn(Gc, &mut Heap) -> Result<Gc>;
+type NatFn = Fn(Gc, Gc, Rc<RestFn>, &mut Heap) -> Result<Gc>;
+
+#[derive(Clone)]
+struct Symbol(Rc<str>);
+
+#[derive(Clone)]
+struct Pair {
+  fst: Gc,
+  snd: Gc,
+  is_list: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+struct Nat {
+  name: Rc<str>,
+  body: Rc<NatFn>,
+}
+
+#[derive(Clone)]
+struct App(Gc);
+
+#[derive(Clone)]
+struct Abs {
+  head: Gc,
+  tail: Gc,
+  lexical: Gc,
+  dynamic: Gc,
+}
+
+#[derive(Clone)]
+enum Proc {
+  Nat(Nat),
+  App(App),
+  Abs(Abs),
+}
+
+#[derive(Clone)]
+enum Object {
+  Unit,
+  Bool(bool),
+  Symbol(Symbol),
+  Pair(Pair),
+  Proc(Proc),
+}
+
+#[derive(Clone)]
 enum Node {
   None,
   Some(Object, usize),
   Mark(Object, usize),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct Heap {
   nodes: Vec<Node>,
   time: usize,
 }
 
 impl Object {
-  fn is_null(&self) -> bool {
+  fn is_unit(&self) -> bool {
     match self {
-      &Object::Null => true,
-      _ => false,
-    }
-  }
-
-  fn is_list(&self) -> bool {
-    match self {
-      &Object::Null | &Object::List(_, _) => true,
+      &Object::Unit => true,
       _ => false,
     }
   }
@@ -134,7 +172,29 @@ impl Heap {
         return Err(Error::Pointer);
       }
     }
-    return Err(Error::Stub);
+  }
+
+  fn new_unit(&mut self) -> Result<Gc> {
+    let object = Object::Unit;
+    return self.put(object);
+  }
+
+  fn new_pair(&mut self, fst: Gc, snd: Gc) -> Result<Gc> {
+    let is_list: bool;
+    match self.get(snd)? {
+      Object::Unit            => { is_list = true }
+      Object::Pair(ref value) => { is_list = value.is_list }
+      _                       => { is_list = false }
+    }
+    let pair = Pair { fst: fst, snd: snd, is_list: is_list };
+    let object = Object::Pair(pair);
+    return self.put(object);
+  }
+
+  fn new_symbol(&mut self, value: Rc<str>) -> Result<Gc> {
+    let symbol = Symbol(value);
+    let object = Object::Symbol(symbol);
+    return self.put(object);
   }
 
   fn mark(&mut self, pointer: Gc) -> Result<()> {
@@ -148,12 +208,26 @@ impl Heap {
         }
         &Node::Some(ref object, timestamp) | &Node::Mark(ref object, timestamp) => {
           match object {
-            &Object::Null => {}
+            &Object::Unit => {}
+            &Object::Bool(_) => {}
             &Object::Symbol(_) => {}
-            &Object::Pair(ref fst, ref snd) |
-            &Object::List(ref fst, ref snd) => {
-              to_mark.push(*fst);
-              to_mark.push(*snd);
+            &Object::Pair(ref value) => {
+              to_mark.push(value.fst);
+              to_mark.push(value.snd);
+            }
+            &Object::Proc(ref proc) => {
+              match proc {
+                &Proc::Nat(_) => {}
+                &Proc::App(ref value) => {
+                  to_mark.push(value.0);
+                }
+                &Proc::Abs(ref value) => {
+                  to_mark.push(value.head);
+                  to_mark.push(value.tail);
+                  to_mark.push(value.lexical);
+                  to_mark.push(value.dynamic);
+                }
+              }
             }
           }
         }
@@ -266,9 +340,9 @@ fn parse(src: &Vec<Token>, heap: &mut Heap) -> Result<Vec<Gc>> {
       &Token::Rparen => {
         match stack.pop() {
           Some(prev) => {
-            let mut xs = heap.put(Object::Null)?;
+            let mut xs = heap.new_unit()?;
             for pointer in pointers.iter().rev() {
-              xs = heap.put(Object::List(*pointer, xs))?;
+              xs = heap.new_pair(*pointer, xs)?;
             }
             pointers = prev;
             pointers.push(xs);
@@ -283,7 +357,7 @@ fn parse(src: &Vec<Token>, heap: &mut Heap) -> Result<Vec<Gc>> {
         index += 1;
       }
       &Token::Symbol(ref body) => {
-        let pointer = heap.put(Object::Symbol(body.clone()))?;
+        let pointer = heap.new_symbol(body.clone())?;
         pointers.push(pointer);
         index += 1;
       }
@@ -294,40 +368,42 @@ fn parse(src: &Vec<Token>, heap: &mut Heap) -> Result<Vec<Gc>> {
 
 fn show(pointer: Gc, buf: &mut String, heap: &Heap) -> Result<()> {
   match heap.get(pointer)? {
-    Object::Null => {
-      buf.push_str("null");
+    Object::Unit => {
+      buf.push_str("unit");
     }
-    Object::Symbol(value) => {
-      buf.push_str(&value);
-    }
-    Object::Pair(fst, snd) => {
-      buf.push('(');
-      show(fst, buf, heap)?;
-      buf.push_str(" * ");
-      show(snd, buf, heap)?;
-      buf.push(')');
-    }
-    Object::List(head, tail) => {
-      let mut xs = pointer;
-      buf.push('(');
-      loop {
-        match heap.get(xs)? {
-          Object::Null => {
-            buf.push(')');
-            return Ok(());
-          }
-          Object::List(head, tail) => {
-            show(head, buf, heap)?;
-            if !heap.get(tail)?.is_null() {
-              buf.push(' ');
-            }
-            xs = tail;
-          }
-          _ => {
-            return Err(Error::Type);
-          }
-        }
+    Object::Bool(value) => {
+      if value {
+        buf.push_str("#t");
+      } else {
+        buf.push_str("#f");
       }
+    }
+    Object::Symbol(ref value) => {
+      buf.push_str(&value.0);
+    }
+    Object::Pair(ref value) => {
+      if !value.is_list {
+        buf.push('(');
+        show(value.fst, buf, heap)?;
+        buf.push_str(" * ");
+        show(value.snd, buf, heap)?;
+        buf.push(')');
+      } else {
+        buf.push('(');
+        let mut xs = pointer;
+        while let Object::Pair(ref value) = heap.get(xs)? {
+          show(value.fst, buf, heap)?;
+          if !heap.get(value.snd)?.is_unit() {
+            buf.push(' ');
+          }
+          xs = value.snd;
+        }
+        guard(heap.get(xs)?.is_unit())?;
+        buf.push(')');
+      }
+    }
+    Object::Proc(_) => {
+      buf.push_str("<procedure>");
     }
   }
   return Ok(());
