@@ -1,1 +1,14 @@
 Softmacs is a Lisp runtime.
+
+* What is a fexpr?
+- [[https://web.cs.wpi.edu/~jshutt/kernel.html][The Kernel Programming Language]]
+- [[http://lambda-the-ultimate.org/node/3640][Lisps, First-Class Special Forms, Fexprs, The Kernel Programming Language]]
+
+* What is a delimited continuation?
+- [[http://okmij.org/ftp/continuations/][Continuations and delimited control]]
+
+* What is content-addressed networking?
+- [[https://arxiv.org/abs/1704.03080][Representing operational semantics with enriched Lawvere theories]]
+
+* What is computability logic?
+- [[http://www.csc.villanova.edu/~japaridz/CL/][A Survey of Computability Logic]]
