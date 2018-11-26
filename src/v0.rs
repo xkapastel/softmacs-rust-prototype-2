@@ -20,7 +20,7 @@ use std::collections::HashSet;
 use super::Lisp;
 
 #[derive(Debug, Clone)]
-enum Error {
+pub enum Error {
   Stub,
   Read,
   Time,
@@ -465,8 +465,8 @@ impl super::Lisp for V0 {
   }
 }
 
-pub fn init() -> impl super::Lisp {
+pub fn init(capacity: usize) -> impl super::Lisp<Error=Error> {
   V0 {
-    heap: Heap::with_capacity(1024),
+    heap: Heap::with_capacity(capacity),
   }
 }

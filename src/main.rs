@@ -23,7 +23,7 @@ use softmacs::Lisp;
 fn main() {
   let mut source_buffer = String::new();
   let mut target_buffer = String::new();
-  let mut lisp = softmacs::v0::init();
+  let mut lisp = softmacs::v0::init(1024);
   let mut uid = 0;
   loop {
     print!("⊥@softmacs\n> ");
