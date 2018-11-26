@@ -59,9 +59,17 @@ struct Pair {
 }
 
 #[derive(Clone)]
-struct Nat {
-  name: Rc<str>,
-  body: Rc<NatFn>,
+enum Nat {
+  Pair,
+  Fst,
+  Snd,
+  Eval,
+  Init,
+  Shift,
+  Reset,
+  And,
+  Or,
+  Not,
 }
 
 #[derive(Clone)]
