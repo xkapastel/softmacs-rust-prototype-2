@@ -45,8 +45,7 @@ struct Gc {
   timestamp: usize,
 }
 
-type RestFn = Fn(Gc, &mut Heap) -> Result<Gc>;
-type NatFn = Fn(Gc, Gc, Rc<RestFn>, &mut Heap) -> Result<Gc>;
+type RestFn = Fn(Gc, &mut V0) -> Result<Gc>;
 
 #[derive(Clone)]
 struct Symbol(Rc<str>);
@@ -364,6 +363,39 @@ fn parse(src: &Vec<Token>, lisp: &mut V0) -> Result<Vec<Gc>> {
   return Ok(pointers);
 }
 
+fn eval(
+  value: Gc,
+  env: Gc,
+  lisp: &mut V0,
+  rest: &RestFn) -> Result<Gc> {
+  return Err(Error::Stub);
+}
+
+fn exec(
+  value: Gc,
+  env: Gc,
+  lisp: &mut V0,
+  rest: &RestFn) -> Result<Gc> {
+  return Err(Error::Stub);
+}
+
+fn evlis(
+  value: Gc,
+  env: Gc,
+  lisp: &mut V0,
+  rest: &RestFn) -> Result<Gc> {
+  return Err(Error::Stub);
+}
+
+fn apply(
+  proc: Gc,
+  value: Gc,
+  env: Gc,
+  lisp: &mut V0,
+  rest: &RestFn) -> Result<Gc> {
+  return Err(Error::Stub);
+}
+
 struct V0 {
   heap: Heap,
 }
@@ -408,6 +440,13 @@ impl super::Lisp for V0 {
     let pair = Pair { fst: fst, snd: snd, is_list: is_list };
     let object = Object::Pair(pair);
     return self.heap.put(object);
+  }
+
+  fn eval(
+    &mut self,
+    value: Self::Value,
+    env: Self::Value) -> Result<Self::Value> {
+    return eval(value, env, self, &|value, lisp| Ok(value));
   }
 
   fn read(

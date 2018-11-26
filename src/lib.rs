@@ -27,6 +27,7 @@ pub trait Lisp {
   fn f(&mut self) -> Result<Self::Value, Self::Error>;
   fn pair(&mut self, fst: Self::Value, snd: Self::Value) -> Result<Self::Value, Self::Error>;
   fn symbol(&mut self, value: Rc<str>) -> Result<Self::Value, Self::Error>;
+  fn eval(&mut self, value: Self::Value, env: Self::Value) -> Result<Self::Value, Self::Error>;
   fn read(&mut self, src: &str) -> Result<Vec<Self::Value>, Self::Error>;
   fn show(&self, value: Self::Value, buffer: &mut String) -> Result<(), Self::Error>;
 }
