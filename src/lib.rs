@@ -15,27 +15,20 @@
 // License along with this program.  If not, see
 // <https://www.gnu.org/licenses/.
 
-extern crate softmacs;
+use std::rc::Rc;
+use std::result::Result;
+use std::fmt::Debug;
 
-use std::io::Write;
-use softmacs::Lisp;
-
-fn main() {
-  let mut source_buffer = String::new();
-  let mut target_buffer = String::new();
-  let mut lisp = softmacs::v0::init();
-  let mut uid = 0;
-  loop {
-    print!("⊥@softmacs\n> ");
-    source_buffer.clear();
-    std::io::stdout().flush().unwrap();
-    std::io::stdin().read_line(&mut source_buffer).unwrap();
-    let xs = lisp.read(&source_buffer).unwrap();
-    for pointer in xs.iter() {
-      target_buffer.clear();
-      lisp.show(*pointer, &mut target_buffer).unwrap();
-      println!("{} = {}", format!("${}", uid), &target_buffer);
-      uid += 1;
-    }
-  }
+pub trait Lisp {
+  type Value: Copy;
+  type Error: Debug;
+  fn unit(&mut self) -> Result<Self::Value, Self::Error>;
+  fn t(&mut self) -> Result<Self::Value, Self::Error>;
+  fn f(&mut self) -> Result<Self::Value, Self::Error>;
+  fn pair(&mut self, fst: Self::Value, snd: Self::Value) -> Result<Self::Value, Self::Error>;
+  fn symbol(&mut self, value: Rc<str>) -> Result<Self::Value, Self::Error>;
+  fn read(&mut self, src: &str) -> Result<Vec<Self::Value>, Self::Error>;
+  fn show(&self, value: Self::Value, buffer: &mut String) -> Result<(), Self::Error>;
 }
+
+pub mod v0;
